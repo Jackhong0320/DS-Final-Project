@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>荒野亂鬥專屬搜尋引擎</title>
+    <style>
+        body { 
+            font-family: "Microsoft JhengHei", Arial, sans-serif; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background-image: url('images.jpg'); 
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .search-box { 
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px; 
+            border-radius: 15px; 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3); 
+            text-align: center; 
+            margin-bottom: 20px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .input-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px;}
+        input { padding: 12px; width: 70%; font-size: 16px; border: 2px solid #ddd; border-radius: 5px; outline: none; }
+        input:focus { border-color: #ffcc00; }
+        button { padding: 12px 25px; background-color: #ffcc00; border: none; cursor: pointer; font-size: 16px; border-radius: 5px; font-weight: bold;}
+        button:hover { background-color: #e6b800; transform: scale(1.05); transition: 0.2s;}
+
+        .suggestions-area { margin-top: 15px; text-align: left; }
+        .suggestions-label { font-size: 14px; color: #666; margin-bottom: 5px; font-weight:bold;}
+        .keyword-btn {
+            display: inline-block;
+            background-color: #e3f2fd; color: #1565c0; padding: 6px 15px; margin: 5px;
+            border-radius: 20px; cursor: pointer; font-size: 14px; border: 1px solid #90caf9;
+            transition: 0.2s; user-select: none; box-shadow: 0 2px 2px rgba(0,0,0,0.1);
+        }
+        .keyword-btn:hover { background-color: #2196f3; color: white; transform: translateY(-2px); }
+
+        /* AI 摘要區塊 */
+        .ai-summary-box {
+            background: linear-gradient(135deg, #f0f4ff 0%, #eef1f5 100%);
+            border: 2px solid #c2d1ff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(66, 133, 244, 0.15);
+            position: relative;
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        .ai-icon {
+            position: absolute;
+            top: -15px;
+            left: 20px;
+            background: linear-gradient(45deg, #4285f4, #34a853);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .ai-content h3 { margin-top: 0; color: #1a73e8; font-size: 18px; }
+        .ai-content h4 { margin-bottom: 5px; color: #333; }
+        .ai-content p { line-height: 1.6; color: #444; margin-bottom: 10px; }
+        .ai-content ul { margin-top: 5px; padding-left: 20px; color: #555; }
+        .ai-content li { margin-bottom: 5px; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 搜尋結果 */
+        .result-item { 
+            background: rgba(255, 255, 255, 0.95); padding: 20px; margin-bottom: 15px; 
+            border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s;
+        }
+        .result-item:hover { transform: translateY(-3px); }
+        .result-title { color: #1a0dab; font-size: 20px; text-decoration: none; font-weight: bold; display: block; margin-bottom: 5px;}
+        .result-title:hover { text-decoration: underline; }
+        .score-line { font-weight: bold; font-size: 14px; margin-bottom: 5px; }
+        .high-score { color: #d93025; } .low-score { color: #666; }    
+        .snippet { color: #545454; line-height: 1.5; font-size: 14px;}
+        
+        #loading { display:none; text-align:center; margin:20px; font-weight:bold; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.8);}
+    </style>
+</head>
+<body>
+
+    <div class="search-box">
+        <h1 style="margin-top:0; color:#333;">Brawl Stars Search</h1>
+        <div class="input-group">
+            <input type="text" id="query" placeholder="輸入關鍵字 (例如: 戰鬥, 雪莉, 寶石爭奪)" onkeydown="if(event.key==='Enter') doSearch()">
+            <button onclick="doSearch()">搜尋</button>
+        </div>
+
+        <div id="suggestions" class="suggestions-area" style="display:none;">
+            <div class="suggestions-label">🔍 搜尋建議：</div>
+            <div id="btn-container"></div>
+        </div>
+    </div>
+
+    <div id="loading">🚀 正在進行搜索並生成AI摘要...</div>
+
+    <div id="ai-box" class="ai-summary-box">
+        <div class="ai-icon">✨ 生成式 AI 摘要</div>
+        <div id="ai-content" class="ai-content"></div>
+    </div>
+
+    <div id="results-area"></div>
+
+    <script>
+        async function doSearch(keyword) {
+            const input = document.getElementById('query');
+            const queryText = keyword || input.value; 
+            
+            if(!queryText) return;
+            input.value = queryText; 
+
+            // UI 重置
+            document.getElementById('results-area').innerHTML = '';
+            document.getElementById('ai-box').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('suggestions').style.display = 'none';
+
+            try {
+                const res = await fetch(`/api/search?q=${encodeURIComponent(queryText)}`);
+                const data = await res.json();
+                
+                document.getElementById('loading').style.display = 'none';
+                
+                // 1. 顯示 AI 摘要
+                if (data.ai_summary) {
+                    const aiBox = document.getElementById('ai-box');
+                    const aiContent = document.getElementById('ai-content');
+                    
+                    aiBox.style.display = 'block';
+                    aiContent.innerHTML = data.ai_summary;
+                }
+
+                // 2. 顯示搜尋結果
+                const resultsDiv = document.getElementById('results-area');
+                if(data.results.length === 0) {
+                    resultsDiv.innerHTML = '<div style="text-align:center; color:white; font-weight:bold; font-size:18px;">找不到結果</div>';
+                }
+
+                data.results.forEach((item, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'result-item';
+                    const scoreColor = item.topicScore > 15 ? 'high-score' : 'low-score';
+                    
+                    div.innerHTML = `
+                        <div style="float:right; color:#999; font-size:12px;">#${index + 1}</div>
+                        <a href="${item.url}" class="result-title" target="_blank">${item.title}</a>
+                        <div style="color:green; font-size:12px; margin-bottom:5px;">${item.url}</div>
+                        <div class="score-line ${scoreColor}">
+                            自訂分數: ${item.topicScore.toFixed(1)} 
+                            <span style="color:#999; font-weight:normal;">(Google原排名: ${item.googleRank})</span>
+                        </div>
+                        <div class="snippet">${item.content ? item.content.substring(0, 120) + '...' : ''}</div>
+                    `;
+                    resultsDiv.appendChild(div);
+                });
+
+                // 3. 建議關鍵字
+                if(data.related_keywords && data.related_keywords.length > 0) {
+                    document.getElementById('suggestions').style.display = 'block';
+                    const btnContainer = document.getElementById('btn-container');
+                    btnContainer.innerHTML = ''; 
+                    
+                    data.related_keywords.forEach(key => {
+                        const btn = document.createElement('span');
+                        btn.className = 'keyword-btn'; 
+                        btn.innerText = key;
+                        btn.onclick = function() { doSearch(key); }; 
+                        btnContainer.appendChild(btn);
+                    });
+                }
+
+            } catch(e) {
+                console.error(e);
+                document.getElementById('loading').innerText = '錯誤';
+            }
+        }
+    </script>
+</body>
+</html>
