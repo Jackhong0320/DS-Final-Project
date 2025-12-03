@@ -4,25 +4,25 @@ import dsfinal.demo.model.WebPage;
 
 public class Ranker {
     
-    // 主題關鍵字：只要出現這些字，代表這個網頁跟荒野亂鬥高度相關
-    private final String[] THEME_KEYWORDS = {"荒野亂鬥", "Brawl Stars", "Supercell", "brawl stars"};
+    // 支援多國語言的主題關鍵字
+    private final String[] THEME_KEYWORDS = {
+        "荒野亂鬥", "Brawl Stars", "Supercell", "brawl", 
+        "ブロスタ", "브롤스타즈", "Clash", "브롤", "براول ستارز"
+    };
 
-    public Ranker() {
-    }
+    private final String[] AUTHORITY_DOMAINS = {
+        "wikipedia.org", "fandom.com", "wiki", "game8", "gamewith", "inven", "dcard"
+    };
 
-    /**
-     * 計算分數邏輯：
-     * 1. 是否包含「荒野亂鬥」主題？ (權重最重)
-     * 2. 是否包含使用者搜尋的關鍵字？ (權重次之)
-     */
     public double calculatePageScore(WebPage page, String userQuery) {
         if (page.content == null) page.content = ""; 
         
         double score = 0.0;
         String fullText = (page.title + " " + page.content).toLowerCase();
         String query = userQuery.toLowerCase();
+        String url = page.url.toLowerCase();
 
-        // 規則 1: 荒野亂鬥主題檢查
+        // 1. 主題檢查 (沒變)
         boolean isThemeRelated = false;
         for (String themeWord : THEME_KEYWORDS) {
             if (fullText.contains(themeWord.toLowerCase())) {
@@ -30,44 +30,41 @@ public class Ranker {
                 break;
             }
         }
+        if (isThemeRelated) score += 20.0;
+        else score -= 20.0;
 
-        if (isThemeRelated) {
-            // 只要跟荒野亂鬥有關，直接先給 20 分 (基礎分)
-            score += 20.0; 
+        // 2. [重要修改] 嚴格關鍵字檢查 (Strict Matching)
+        // 把使用者輸入的字串切開 (例如 "ブロスタ 戦略" -> "ブロスタ", "戦略")
+        String[] keywords = query.split("\\s+"); // 用空白切割
+        
+        for (String key : keywords) {
+            if (key.length() < 1) continue;
             
-            // 如果是在標題就提到荒野亂鬥，再加 10 分
-            //if (page.title.toLowerCase().contains("荒野亂鬥") || page.title.toLowerCase().contains("brawl stars")) {
-                //score += 10.0;
-            //}
-        } else {
-            // 如果完全沒提到荒野亂鬥
-            // 進行扣分
-            score -= 20.0; 
+            // 檢查這個詞有沒有在內文出現
+            if (fullText.contains(key)) {
+                // 有出現 -> 加分
+                score += 10.0; 
+                
+                // 如果是在標題出現 -> 大加分
+                if (page.title.toLowerCase().contains(key)) {
+                    score += 20.0;
+                }
+            } else {
+                // [關鍵] 只要缺了一個關鍵字，就重重扣分！
+                // 這樣就能過濾掉那些「只沾到邊」的網站
+                score -= 50.0;
+            }
         }
 
-        // 規則 2: 使用者查詢關聯度
-        // 計算使用者搜尋的字 (例如 "戰鬥") 出現次數
-        int count = countOccurrences(fullText, query);
-        
-        if (count > 0) {
-            // 有出現搜尋字，給予加分
-            // 例如：出現一次 +2 分，上限 +10 分
-            double queryScore = Math.min(count * 2.0, 10.0);
-            score += queryScore;
+        // 3. 權威網站微調 (沒變)
+        for (String domain : AUTHORITY_DOMAINS) {
+            if (url.contains(domain)) {
+                score += 5.0; 
+                break;
+            }
         }
 
         page.topicScore = score;
         return score;
-    }
-
-    private int countOccurrences(String text, String keyword) {
-        if (text == null || keyword == null || keyword.isEmpty()) return 0;
-        int count = 0;
-        int idx = 0;
-        while ((idx = text.indexOf(keyword, idx)) != -1) {
-            count++;
-            idx += keyword.length();
-        }
-        return count;
     }
 }
