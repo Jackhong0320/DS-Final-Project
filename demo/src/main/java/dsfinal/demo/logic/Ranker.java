@@ -86,7 +86,7 @@ public class Ranker {
         // 第一級：第一個關鍵字 + 所有其他關鍵字都符合
         if (hasFirstKeyword && hasAllOtherKeywords) {
             score += 100.0; // 最高權重
-            if (firstInTitle) score += 50.0; // 第一個關鍵字在標題
+            if (firstInTitle) score += 30.0; // 第一個關鍵字在標題
             score += otherKeywordsInTitle * 20.0; // 其他關鍵字在標題也加分
         }
         // 第二級：只有第一個關鍵字符合
@@ -103,7 +103,7 @@ public class Ranker {
         }
         // 第四級：完全沒有任何關鍵字
         else {
-            score -= 100.0; // 重重扣分
+            score -= 30.0; // 重重扣分
         }
 
         // 3. 權威網站微調

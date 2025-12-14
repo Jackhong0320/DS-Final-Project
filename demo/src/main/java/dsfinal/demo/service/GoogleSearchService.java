@@ -19,7 +19,7 @@ import dsfinal.demo.model.WebPage;
 @Service
 public class GoogleSearchService {
 
-    private final String GOOGLE_API_KEY = "AIzaSyA-NrUymsiuPx8zUnQ6PaZl5Gpo3I36eT4"; 
+    private final String GOOGLE_API_KEY = "AIzaSyDe9f1O6NEdXEcY-dwC88ECOpFhHU0D1So"; 
     private final String SEARCH_ENGINE_ID = "b25a4f1b2c45547ca"; 
     
     private final String BASE_URL = "https://www.googleapis.com/customsearch/v1?key=" + GOOGLE_API_KEY + "&cx=" + SEARCH_ENGINE_ID;

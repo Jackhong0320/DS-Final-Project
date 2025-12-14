@@ -6,163 +6,248 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import dsfinal.demo.model.WebPage;
 
+/**
+ * SemanticAnalyzer (萬國語言 + 錯字容錯版)
+ */
 public class SemanticAnalyzer {
 
-    // 定義停用詞：如果抓到的詞是以這些開頭，通常不是好的關鍵字
     private static final Set<String> STOP_WORDS = new HashSet<>(Arrays.asList(
-        "的", "是", "在", "有", "與", "和", "了", "the", "is", "of", "in", "to", "for", "a", "an"
+        "的", "是", "在", "有", "與", "和", "了", "對", "也", "及", "等", "或", "之",
+        "他", "你", "我", "它", "這", "那", "個", "位", "名", "其", "實", "讓",
+        "認", "為", "覺", "得", "顯", "示", "看", "到", "做", "作", "用",
+        "the", "is", "of", "in", "to", "for", "a", "an", "on", "at", "by", "and", "or", "it", "with", "from", "about"
     ));
 
     public List<String> deriveRelatedKeywords(List<WebPage> topPages, String userQuery) {
-        // 用來統計候選詞頻率的 Map (候選詞 -> 出現次數)
         Map<String, Integer> candidateFreq = new HashMap<>();
         String lowerQuery = userQuery.toLowerCase().trim();
         
-        // 擴大樣本數：看前 30 名標題，樣本越多，"配置"、"WIKI" 這種熱詞的統計就會越準確
-        List<WebPage> targetPages = topPages.size() > 5 ? topPages.subList(0, 5) : topPages;
+        boolean hasSpace = userQuery.contains(" ");
+        String firstWord = hasSpace ? userQuery.split("\\s+")[0] : userQuery;
+        
+        List<WebPage> targetPages = topPages.size() > 10 ? topPages.subList(0, 10) : topPages;
 
         for (WebPage page : targetPages) {
             String rawTitle = page.title;
             if (rawTitle == null) continue;
 
-            // --- 步驟 1: 強力清洗 (Surgical Cleaning) ---
-            // 這是產生乾淨建議的關鍵，修正之前 "雪莉 |" 或 "雪莉 #荒" 的問題
+            // --- 步驟 1: 萬國語言強力清洗 ---
             
-            // 1. 移除括號與內容 (去除雜訊)
-            String cleanTitle = rawTitle.replaceAll("【.*?】", " ")
-                                        .replaceAll("\\[.*?\\]", " ")
-                                        .replaceAll("\\(.*?\\)", " ")
-                                        .replaceAll("《.*?》", " "); // 移除書名號
+            String cleanTitle = rawTitle.replaceAll("(?i)(\\s*[-|–:_]\\s*).*$", "")
+                                   .replaceAll("【.*?】", " ")
+                                   .replaceAll("\\[.*?\\]", " ")
+                                   .replaceAll("\\(.*?\\)", " ")
+                                   .replaceAll("《.*?》", " ");
             
-            // 2. 移除網站後綴 (只要遇到 | - _ : 就切斷)
-            // 這裡改進了 regex，只要有分隔符號就視為結尾
-            cleanTitle = cleanTitle.replaceAll("(?i)(\\s*[-|–:_]\\s*).*$", "");
+            // [關鍵修正 1] 加入 \\p{M} 支援泰文/越南文的聲調符號
+            cleanTitle = cleanTitle.replaceAll("[^\\p{L}\\p{N}\\p{M}\\s]", " ");
             
-            // 3. 移除特殊標點符號 (包含井號 #)
-            cleanTitle = cleanTitle.replaceAll("[!！?？,，.。~～#]", " ");
-            
-            // 4. 合併空白並去頭尾
             cleanTitle = cleanTitle.trim().replaceAll("\\s+", " ");
-            
             String lowerTitle = cleanTitle.toLowerCase();
 
-            // --- 步驟 2: 後綴挖掘 (Suffix Mining) ---
-            // 找出關鍵字在標題中的位置，然後分析它「後面」接了什麼
+            // --- 步驟 2: 挖掘邏輯 ---
             
-            int idx = lowerTitle.indexOf(lowerQuery);
-            if (idx != -1) {
-                // 截取關鍵字後面的字串 (Suffix)
-                String suffix = cleanTitle.substring(idx + userQuery.length()).trim();
+            if (hasSpace) {
+                // 空格查詢策略
+                extractSecondWords(cleanTitle, firstWord, candidateFreq);
+            } else {
+                // 無空格查詢策略 (包含錯字處理)
+                int idx = lowerTitle.indexOf(lowerQuery);
                 
-                if (!suffix.isEmpty()) {
-                    // 對這個後綴進行 N-gram 採樣
-                    extractNGrams(suffix, candidateFreq);
+                // [關鍵修正 2] 如果精確比對找不到，嘗試「模糊比對」解決錯字問題
+                if (idx == -1) {
+                    idx = findFuzzyMatchIndex(lowerTitle, lowerQuery);
+                }
+
+                while (idx != -1) {
+                    // 從找到的位置(可能是錯字的位置)往後抓
+                    String suffix = cleanTitle.substring(idx + userQuery.length());
+                    suffix = trimLeadingStopWords(suffix);
+                    if (!suffix.isEmpty()) {
+                        extractCandidates(suffix, candidateFreq);
+                    }
+                    // 繼續找下一個 (精確比對才有辦法簡單繼續找，模糊比對找一次就好)
+                    if (lowerTitle.indexOf(lowerQuery, idx + 1) != -1) {
+                        idx = lowerTitle.indexOf(lowerQuery, idx + 1);
+                    } else {
+                        break; 
+                    }
                 }
             }
         }
 
-        // --- 步驟 3: 排序與過濾 ---
-        List<String> suggestions = candidateFreq.entrySet().stream()
+        // --- 步驟 3: 排序與輸出 ---
+        List<String> suggestions = new java.util.ArrayList<>();
+        Set<Character> usedChars = new HashSet<>();
+        
+        candidateFreq.entrySet().stream()
             .sorted((a, b) -> {
-                // 頻率優先：出現越多次的詞越重要
                 int freqCompare = b.getValue().compareTo(a.getValue());
-                // 如果頻率相同，優先選短的 (例如 "配置" 優於 "配置介紹")，這符合 Google 風格
-                if (freqCompare == 0) return Integer.compare(a.getKey().length(), b.getKey().length());
-                return freqCompare;
+                if (freqCompare != 0) return freqCompare;
+                return Integer.compare(a.getKey().length(), b.getKey().length());
             })
-            .map(Map.Entry::getKey) // 取出詞彙
-            .filter(s -> isValidCandidate(s)) // 過濾掉不合法的詞
-            .limit(5) // 只取前 5 個
-            .map(s -> userQuery + " " + s) // 組合：雪莉 + 配置
-            .collect(Collectors.toList());
-
-        // 如果挖出來的不足 5 個 (例如新角色資料太少)，用通用詞補滿
-        if (suggestions.size() < 5) {
-            fillFallbackSuggestions(suggestions, userQuery);
-        }
-
+            .map(Map.Entry::getKey)
+            .filter(s -> isValidCandidate(s, lowerQuery))
+            .forEach(candidate -> {
+                if (suggestions.size() >= 5) return;
+                if (containsUsedChars(candidate, usedChars)) return;
+                
+                // 這裡的小巧思：如果使用者打錯字，我們建議時還是用他原本打的字 + 建議詞
+                // 這樣體驗比較自然 (或者你想自動幫他更正也可以，但這裡保持原樣比較安全)
+                String suggestion = hasSpace ? firstWord + " " + candidate : userQuery + " " + candidate;
+                suggestions.add(suggestion);
+                
+                for (char c : candidate.toCharArray()) {
+                    if (Character.isLetterOrDigit(c)) usedChars.add(Character.toLowerCase(c));
+                }
+            });
+        
         return suggestions;
-    }
-
-    /**
-     * 從後綴字串中提取 N-gram 候選詞
-     * 例如 suffix = "最強配置攻略"
-     * 提取 -> "最強" (2字), "最強配" (3字)
-     */
-    private void extractNGrams(String suffix, Map<String, Integer> freqMap) {
-        // 策略 A: 空白分隔 (適用於英文或混雜英文，如 "Wiki", "Skin")
-        String[] parts = suffix.split("\\s+");
-        if (parts.length > 0) {
-            String firstWord = parts[0].trim();
-            // 如果是純英文單字，直接加分
-            if (firstWord.matches("^[a-zA-Z0-9]+$") && firstWord.length() > 1) {
-                freqMap.put(firstWord, freqMap.getOrDefault(firstWord, 0) + 3); // 英文單字權重高
-            }
-        }
-
-        // 策略 B: 連續字元切分 (適用於中文，如 "配置", "星能力")
-        // 我們假設關鍵字通常是 2 個字或 3 個字
-        
-        // 2-gram (例如 "配置", "攻略", "造型")
-        if (suffix.length() >= 2) {
-            String twoChars = suffix.substring(0, 2);
-            // 只有當它是中文字或英數混合時才算
-            if (!STOP_WORDS.contains(twoChars)) {
-                freqMap.put(twoChars, freqMap.getOrDefault(twoChars, 0) + 1);
-            }
-        }
-        
-        // 3-gram (例如 "星能力", "妙具", "懶人包")
-        if (suffix.length() >= 3) {
-            String threeChars = suffix.substring(0, 3);
-            if (!STOP_WORDS.contains(threeChars)) {
-                freqMap.put(threeChars, freqMap.getOrDefault(threeChars, 0) + 1);
-            }
-        }
-    }
-
-    /**
-     * 檢查候選詞是否合法
-     */
-    private boolean isValidCandidate(String s) {
-        // 過濾太短的 (1個字通常無意義)
-        if (s.length() < 2) return false;
-        
-        // 過濾太長的 (超過 6 個字就是句子了，不是關鍵字)
-        if (s.length() > 6) return false;
-        
-        // 過濾停用詞開頭 (例如 "的是", "的攻")
-        for (String stop : STOP_WORDS) {
-            if (s.startsWith(stop)) return false;
-        }
-        
-        // 過濾純符號或純數字 (除非是年份如 2025)
-        if (s.matches("[0-9]+") && s.length() < 4) return false;
-        
-        return true;
     }
     
     /**
-     * 備用方案：如果真的什麼都挖不到，才用通用詞補
+     * [新功能] 模糊比對：在標題中尋找與 Query 最像的片段
+     * 解決 "荒也亂鬥" (錯字) 找不到 "荒野亂鬥" (正確標題) 的問題
      */
-    private void fillFallbackSuggestions(List<String> suggestions, String userQuery) {
-        boolean isChinese = userQuery.chars().anyMatch(c -> Character.UnicodeBlock.of(c) == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS);
-        String[] suffixes = isChinese 
-            ? new String[]{" 攻略", " 技巧", " 排名", " 介紹"} 
-            : new String[]{" Guide", " Wiki", " Tips", " Build"};
+    private int findFuzzyMatchIndex(String title, String query) {
+        if (title.length() < query.length()) return -1;
+        if (query.length() < 2) return -1; // 太短不模糊比對
 
-        for (String suffix : suffixes) {
-            if (suggestions.size() >= 5) break;
-            String key = userQuery + suffix;
-            // 避免重複
-            boolean exists = false;
-            for(String s : suggestions) if(s.equalsIgnoreCase(key)) exists = true;
+        int bestIdx = -1;
+        // 容錯率設定：允許 25% 的錯誤 (例如 4 個字允許錯 1 個)
+        int maxErrors = Math.max(1, query.length() / 4); 
+        int minDiff = Integer.MAX_VALUE;
+
+        // 滑動視窗 (Sliding Window) 掃描整串標題
+        for (int i = 0; i <= title.length() - query.length(); i++) {
+            String sub = title.substring(i, i + query.length());
+            int diff = 0;
             
-            if (!exists) suggestions.add(key);
+            // 計算差異字元數
+            for (int j = 0; j < query.length(); j++) {
+                if (sub.charAt(j) != query.charAt(j)) {
+                    diff++;
+                }
+            }
+            
+            // 如果差異在容許範圍內，且是目前最像的
+            if (diff <= maxErrors && diff < minDiff) {
+                minDiff = diff;
+                bestIdx = i;
+            }
         }
+        
+        // 如果完全沒找到像的，minDiff 會很大
+        if (minDiff > maxErrors) return -1;
+        
+        return bestIdx;
+    }
+
+    private void extractSecondWords(String title, String firstWord, Map<String, Integer> freqMap) {
+        String lowerTitle = title.toLowerCase();
+        String lowerFirst = firstWord.toLowerCase();
+        int idx = lowerTitle.indexOf(lowerFirst);
+        
+        // 如果空格搜尋的第一個詞也打錯 (例如 "荒也 攻略")，也嘗試模糊比對
+        if (idx == -1) {
+            idx = findFuzzyMatchIndex(lowerTitle, lowerFirst);
+        }
+
+        while (idx != -1) {
+            int start = idx + firstWord.length();
+            if (start < title.length()) {
+                String suffix = title.substring(start).trim();
+                if (!suffix.isEmpty()) {
+                    String[] parts = suffix.split("\\s+");
+                    if (parts.length > 0 && parts[0].length() >= 2) {
+                        String secondWord = parts[0];
+                        if (!STOP_WORDS.contains(secondWord.toLowerCase())) {
+                            freqMap.put(secondWord, freqMap.getOrDefault(secondWord, 0) + 3);
+                        }
+                    }
+                    String noSpace = suffix.replaceAll("\\s+", "");
+                    for (int len = 2; len <= Math.min(4, noSpace.length()); len++) {
+                        String gram = noSpace.substring(0, len);
+                        if (!containsStopWord(gram.toLowerCase())) {
+                            freqMap.put(gram, freqMap.getOrDefault(gram, 0) + 1);
+                        }
+                    }
+                }
+            }
+            // 模糊比對後只取第一個最像的就好，避免複雜迴圈
+            break;
+        }
+    }
+    
+    // ... (以下方法保持不變: containsUsedChars, trimLeadingStopWords, extractCandidates, containsStopWord, isValidCandidate) ...
+    
+    private boolean containsUsedChars(String candidate, Set<Character> usedChars) {
+        for (char c : candidate.toCharArray()) {
+            if (Character.isLetterOrDigit(c)) {
+                if (usedChars.contains(Character.toLowerCase(c))) return true;
+            }
+        }
+        return false;
+    }
+
+    private String trimLeadingStopWords(String text) {
+        String processed = text;
+        for (int i = 0; i < 3; i++) {
+            processed = processed.trim();
+            if (processed.isEmpty()) return "";
+            String firstChar = processed.substring(0, 1);
+            if (STOP_WORDS.contains(firstChar)) {
+                processed = processed.substring(1);
+                continue;
+            }
+            int spaceIdx = processed.indexOf(" ");
+            if (spaceIdx != -1) {
+                String firstWord = processed.substring(0, spaceIdx).toLowerCase();
+                if (STOP_WORDS.contains(firstWord)) {
+                    processed = processed.substring(spaceIdx + 1);
+                    continue;
+                }
+            }
+            break; 
+        }
+        return processed;
+    }
+
+    private void extractCandidates(String suffix, Map<String, Integer> freqMap) {
+        String[] parts = suffix.split("\\s+");
+        if (parts.length > 0) {
+            String word = parts[0].trim();
+            if (word.length() > 1 && !STOP_WORDS.contains(word.toLowerCase())) {
+                freqMap.put(word, freqMap.getOrDefault(word, 0) + 3);
+            }
+        }
+        if (suffix.length() >= 2) {
+            String two = suffix.substring(0, 2);
+            if (!containsStopWord(two) && !two.contains(" ")) {
+                freqMap.put(two, freqMap.getOrDefault(two, 0) + 1);
+            }
+        }
+        if (suffix.length() >= 3) {
+            String three = suffix.substring(0, 3);
+            if (!containsStopWord(three) && !three.contains(" ")) {
+                freqMap.put(three, freqMap.getOrDefault(three, 0) + 1);
+            }
+        }
+    }
+
+    private boolean containsStopWord(String s) {
+        for (String stop : STOP_WORDS) if (s.contains(stop)) return true;
+        return false;
+    }
+
+    private boolean isValidCandidate(String s, String query) {
+        if (s.length() < 2) return false;
+        if (s.length() > 13) return false;
+        if (s.toLowerCase().contains(query)) return false;
+        if (s.matches("[0-9]+")) return false;
+        return true;
     }
 }
