@@ -30,9 +30,9 @@ public class GoogleSearchService {
         System.out.println(">>> 系統收到搜尋請求: " + query);
         List<WebPage> pages = new ArrayList<>();
         
-        // --- [修改] 以第一個關鍵字的語言為主 ---
+        // --- 以第一個關鍵字的語言為主 ---
         String searchTerm = query;
-        String langParam = ""; // Google 的 lr 參數
+        String langParam = "";
         
         // 分割關鍵字，取第一個關鍵字作為語言判斷依據
         String[] keywords = query.trim().split("\\s+");
@@ -41,30 +41,26 @@ public class GoogleSearchService {
         System.out.println(">>> 第一個關鍵字: " + firstKeyword);
 
         if (containsChinese(firstKeyword)) {
-            // 中文：加上中文名，限制繁體中文
             if (!query.contains("荒野")) searchTerm = query + " 荒野亂鬥";
             langParam = "&lr=lang_zh-TW";
             System.out.println(">>> 偵測到中文，鎖定繁體中文搜尋");
             
         } else if (containsJapanese(firstKeyword)) {
-            // 日文：限制日文
             if (!query.contains("ブロスタ") && !query.contains("Brawl")) searchTerm = query + " ブロスタ";
             langParam = "&lr=lang_ja";
             System.out.println(">>> 偵測到日文，鎖定日文搜尋");
             
         } else if (containsKorean(firstKeyword)) {
-            // 韓文：限制韓文
             if (!query.contains("브롤") && !query.contains("Brawl")) searchTerm = query + " 브롤스타즈";
             langParam = "&lr=lang_ko";
             System.out.println(">>> 偵測到韓文，鎖定韓文搜尋");
             
         } else if (containsArabic(firstKeyword)) {
-            // 阿拉伯文：限制阿拉伯文
             langParam = "&lr=lang_ar";
             System.out.println(">>> 偵測到阿拉伯文，鎖定阿拉伯文搜尋");
             
         } else {
-            // 其他 (英文/西文等)：加上 Brawl Stars 確保是遊戲相關
+            // 其他 (英文/西文等)
             if (!query.toLowerCase().contains("brawl")) {
                 searchTerm = query + " Brawl Stars";
             }
@@ -129,7 +125,6 @@ public class GoogleSearchService {
         return false;
     }
     
-    // 新增阿拉伯文偵測
     private boolean containsArabic(String s) {
         for (char c : s.toCharArray()) if (UnicodeBlock.of(c) == UnicodeBlock.ARABIC) return true;
         return false;

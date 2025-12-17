@@ -27,12 +27,12 @@ public class AiSummaryService {
 
         StringBuilder sb = new StringBuilder();
         
-        String title = isChinese ? "🤖 AI 智能摘要" : "🤖 AI Summary";
+        String title = isChinese ? "🤖 AI摘要" : "🤖 AI Summary";
         // 如果真的沒抓到句子，顯示提示
         String noResult = isChinese ? "資訊量不足，無法生成摘要。" : "Not enough information to generate a summary.";
         String sourceTitle = isChinese ? "📚 資料來源：" : "📚 Sources:";
 
-        // AI 標題區
+        // AI 標題
         sb.append("<div style='margin-bottom:10px;'>")
           .append("<span style='font-weight:bold; color:#1a73e8; font-size:16px;'>").append(title).append("</span>")
           .append("<span style='color:#666; font-size:14px; margin-left:10px;'>").append(query).append("</span>")
@@ -76,8 +76,7 @@ public class AiSummaryService {
             // 移除特殊字元
             String dirtyContent = page.content.replaceAll("[\\uE000-\\uF8FF]", ""); 
             
-            // [修正 1] 斷句邏輯：加入英文句點 (.)
-            // 這樣 "This is a sentence. This is another." 才會被切開，不會因為太長被丟掉
+            // 斷句邏輯：加入英文句點 (.)
             String[] sentences = dirtyContent.split("[。！？\\n\\r?!.]");
 
             for (String s : sentences) {
@@ -124,7 +123,6 @@ public class AiSummaryService {
         if (lowerS.contains("cookies") || lowerS.contains("login") || lowerS.contains("rights reserved") || lowerS.contains("登入")) return -999;
 
         // [修正 2] 關鍵字拆解比對
-        // 解決 "雪莉 攻略" (有空格) 導致完整比對失敗的問題
         String[] keywords = lowerQ.split("\\s+");
         int matchCount = 0;
         
@@ -136,17 +134,16 @@ public class AiSummaryService {
             }
         }
 
-        // 如果全部關鍵字都命中，給予額外大加分 (代表這句話很精準)
+        // 如果全部關鍵字都命中，給予額外加分 (代表這句話很精準)
         if (matchCount == keywords.length && keywords.length > 0) {
             score += 40;
         }
 
-        // [修正 3] 多國語言保底分
-        // 解決日韓文網頁即使相關也被當成 0 分的問題
+        // 保底分
         for (String gameName : GAME_NAMES) {
             if (lowerS.contains(gameName)) {
                 score += 10;
-                break; // 有命中一個就行
+                break;
             }
         }
 

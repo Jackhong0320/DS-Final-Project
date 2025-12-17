@@ -19,14 +19,15 @@ import dsfinal.demo.model.WebPage;
 
 public class Ranker {
     
-    // 支援多國語言的主題關鍵字
+    // 支援主題關鍵字
     private final String[] THEME_KEYWORDS = {
         "荒野亂鬥", "Brawl Stars", "Supercell", "brawl", 
         "ブロスタ", "브롤스타즈", "Clash", "브롤", "براول ستارز"
     };
 
     private final String[] AUTHORITY_DOMAINS = {
-        "wikipedia.org", "fandom.com", "wiki", "game8", "gamewith", "inven", "dcard"
+        "wikipedia.org", "fandom.com", "wiki", "game8", "gamewith", "inven", "dcard",
+        "supercell.com", "gamer.com.tw"
     };
 
     // 簡單翻譯快取，避免重複呼叫外部翻譯服務
@@ -50,9 +51,9 @@ public class Ranker {
             }
         }
         if (isThemeRelated) score += 30.0; // 提高主題相關性權重
-        else score -= 50.0; // 不相關直接重扣
+        else score -= 50.0; // 不相關
 
-        // 2. [新邏輯] 拆字搜尋 - 第一個關鍵字最重要
+        // 2. 拆字搜尋 - 第一個關鍵字最重要
         String[] keywords = query.split("\\s+");
         
         if (keywords.length == 0) {
@@ -61,7 +62,7 @@ public class Ranker {
             return score;
         }
         
-        // 第一個關鍵字（最重要）
+        // 第一個關鍵字
         String firstKeyword = keywords[0];
         boolean hasFirstKeyword = containsWithTranslations(fullText, firstKeyword);
         boolean firstInTitle = containsWithTranslations(page.title.toLowerCase(), firstKeyword);
@@ -106,10 +107,10 @@ public class Ranker {
             score -= 30.0; // 重重扣分
         }
 
-        // 3. 權威網站微調
+        // 3. 微調
         for (String domain : AUTHORITY_DOMAINS) {
             if (url.contains(domain)) {
-                score += 5.0; 
+                score += 10.0; 
                 break;
             }
         }
@@ -118,9 +119,6 @@ public class Ranker {
         return score;
     }
 
-    /**
-     * 判斷全文是否包含關鍵字或其同義/跨語系別名
-     */
     private boolean containsWithTranslations(String textLower, String keywordRaw) {
         String keyword = keywordRaw.toLowerCase();
         if (textLower.contains(keyword)) return true;
@@ -164,7 +162,7 @@ public class Ranker {
 
     /**
      * 簡單偵測文字可能語系並組合常見語系清單。
-     * 目標：覆蓋更多語言，不只 en/zh/ja/ko。
+     * 目標：覆蓋更多語言
      */
     private List<String> detectLikelyLangCodes(String text) {
         Set<String> codes = new LinkedHashSet<>();
@@ -193,7 +191,7 @@ public class Ranker {
     }
 
     /**
-     * 呼叫 MyMemory 免費翻譯 API 取得單詞翻譯
+     * 呼叫 MyMemory 免費翻譯 API
      */
     private String translateViaMyMemory(String text, String targetLang) throws Exception {
         String urlStr = "https://api.mymemory.translated.net/get?q=" + 

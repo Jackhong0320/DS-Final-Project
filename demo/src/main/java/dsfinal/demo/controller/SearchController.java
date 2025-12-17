@@ -1,17 +1,18 @@
 package dsfinal.demo.controller;
 
-import dsfinal.demo.logic.SemanticAnalyzer;
-import dsfinal.demo.model.WebPage;
-import dsfinal.demo.service.AiSummaryService;
-import dsfinal.demo.service.GoogleSearchService;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import dsfinal.demo.logic.SemanticAnalyzer;
+import dsfinal.demo.model.WebPage;
+import dsfinal.demo.service.AiSummaryService;
+import dsfinal.demo.service.GoogleSearchService;
 
 @RestController
 public class SearchController {
@@ -32,8 +33,7 @@ public class SearchController {
         // 2. 語意分析
         List<String> related = semanticAnalyzer.deriveRelatedKeywords(results, q);
 
-        // 3. 生成AI摘要(RAG)
-        // 傳入搜尋關鍵字和排名最高的網頁，生成一段說明
+        // 3. 生成AI摘要
         String aiSummary = aiSummaryService.generateSummary(q, results);
 
         // 4. 包裝結果

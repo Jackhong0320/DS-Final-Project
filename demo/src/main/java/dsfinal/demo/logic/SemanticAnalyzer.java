@@ -34,7 +34,7 @@ public class SemanticAnalyzer {
             String rawTitle = page.title;
             if (rawTitle == null) continue;
 
-            // --- 步驟 1: 萬國語言強力清洗 ---
+            // 步驟 1: 清洗
             
             String cleanTitle = rawTitle.replaceAll("(?i)(\\s*[-|–:_]\\s*).*$", "")
                                    .replaceAll("【.*?】", " ")
@@ -42,13 +42,13 @@ public class SemanticAnalyzer {
                                    .replaceAll("\\(.*?\\)", " ")
                                    .replaceAll("《.*?》", " ");
             
-            // [關鍵修正 1] 加入 \\p{M} 支援泰文/越南文的聲調符號
+            // 加入 \\p{M} 支援聲調符號
             cleanTitle = cleanTitle.replaceAll("[^\\p{L}\\p{N}\\p{M}\\s]", " ");
             
             cleanTitle = cleanTitle.trim().replaceAll("\\s+", " ");
             String lowerTitle = cleanTitle.toLowerCase();
 
-            // --- 步驟 2: 挖掘邏輯 ---
+            // 步驟 2: 挖掘邏輯
             
             if (hasSpace) {
                 // 空格查詢策略
@@ -57,7 +57,7 @@ public class SemanticAnalyzer {
                 // 無空格查詢策略 (包含錯字處理)
                 int idx = lowerTitle.indexOf(lowerQuery);
                 
-                // [關鍵修正 2] 如果精確比對找不到，嘗試「模糊比對」解決錯字問題
+                // 如果精確比對找不到，嘗試「模糊比對」解決錯字問題
                 if (idx == -1) {
                     idx = findFuzzyMatchIndex(lowerTitle, lowerQuery);
                 }
@@ -79,7 +79,7 @@ public class SemanticAnalyzer {
             }
         }
 
-        // --- 步驟 3: 排序與輸出 ---
+        // 步驟 3: 排序與輸出
         List<String> suggestions = new java.util.ArrayList<>();
         Set<Character> usedChars = new HashSet<>();
         
@@ -95,8 +95,7 @@ public class SemanticAnalyzer {
                 if (suggestions.size() >= 5) return;
                 if (containsUsedChars(candidate, usedChars)) return;
                 
-                // 這裡的小巧思：如果使用者打錯字，我們建議時還是用他原本打的字 + 建議詞
-                // 這樣體驗比較自然 (或者你想自動幫他更正也可以，但這裡保持原樣比較安全)
+                // 如果使用者打錯字，我們建議時還是用他原本打的字 + 建議詞
                 String suggestion = hasSpace ? firstWord + " " + candidate : userQuery + " " + candidate;
                 suggestions.add(suggestion);
                 
@@ -109,7 +108,7 @@ public class SemanticAnalyzer {
     }
     
     /**
-     * [新功能] 模糊比對：在標題中尋找與 Query 最像的片段
+     * 模糊比對：在標題中尋找與 Query 最像的片段
      * 解決 "荒也亂鬥" (錯字) 找不到 "荒野亂鬥" (正確標題) 的問題
      */
     private int findFuzzyMatchIndex(String title, String query) {
@@ -117,7 +116,7 @@ public class SemanticAnalyzer {
         if (query.length() < 2) return -1; // 太短不模糊比對
 
         int bestIdx = -1;
-        // 容錯率設定：允許 25% 的錯誤 (例如 4 個字允許錯 1 個)
+        // 容錯率設定：允許 25% 的錯誤
         int maxErrors = Math.max(1, query.length() / 4); 
         int minDiff = Integer.MAX_VALUE;
 
@@ -182,7 +181,6 @@ public class SemanticAnalyzer {
         }
     }
     
-    // ... (以下方法保持不變: containsUsedChars, trimLeadingStopWords, extractCandidates, containsStopWord, isValidCandidate) ...
     
     private boolean containsUsedChars(String candidate, Set<Character> usedChars) {
         for (char c : candidate.toCharArray()) {
