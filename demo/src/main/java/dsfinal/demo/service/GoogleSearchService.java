@@ -83,22 +83,31 @@ public class GoogleSearchService {
                 throw new RuntimeException("API 查無資料");
             }
 
+            // ... (前面的 code 保持不變)
+
             for (JsonNode item : items) {
                 String title = item.path("title").asText();
                 String link = item.path("link").asText();
                 String snippet = item.path("snippet").asText();
 
                 WebPage page = new WebPage(link, title);
+                Document doc = null; // [新增] 用來存 Document 物件
+
                 try {
-                    Document doc = Jsoup.connect(link).userAgent("Mozilla/5.0").timeout(2000).get();
+                    // [修改] 抓取 Document 物件，不只是 text
+                    doc = Jsoup.connect(link).userAgent("Mozilla/5.0").timeout(2000).get();
                     page.setContent(doc.body().text());
                 } catch (Exception e) {
+                    // 如果抓不到，就用 snippet 當內容，且 doc 為 null (代表無法分析子網頁)
                     page.setContent(snippet);
                 }
 
-                ranker.calculatePageScore(page, query);
+                // [修改] 傳入 doc 給 ranker 進行子網頁分析
+                ranker.calculatePageScore(page, query, doc);
                 pages.add(page);
             }
+
+            // ... (後面的 code 保持不變)
 
         } catch (Exception e) {
             System.err.println(">>> 發生錯誤，切換至演示模式");

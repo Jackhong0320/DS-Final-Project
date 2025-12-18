@@ -99,7 +99,7 @@
     <div class="search-box">
         <h1 style="margin-top:0; color:#333;">Brawl Stars Search</h1>
         <div class="input-group">
-            <input type="text" id="query" placeholder="輸入關鍵字 (例如: 戰鬥, 荒野, 寶石爭奪)" onkeydown="if(event.key==='Enter') doSearch()">
+            <input type="text" id="query" placeholder="輸入關鍵字" onkeydown="if(event.key==='Enter') doSearch()">
             <button onclick="doSearch()">搜尋</button>
         </div>
 
@@ -158,6 +158,24 @@
                     div.className = 'result-item';
                     const scoreColor = item.topicScore > 15 ? 'high-score' : 'low-score';
                     
+                    // 1. 生成子網頁的 HTML
+                    let subPagesHtml = '';
+                    if (item.subPages && item.subPages.length > 0) {
+                        subPagesHtml += '<div class="sub-pages-container" style="margin-top:10px; padding-left:20px; border-left: 2px solid #eee;">';
+                        item.subPages.forEach(sub => {
+                            subPagesHtml += `
+                                <div style="margin-bottom:4px;">
+                                    <span style="color:#666; font-size:12px;">↳</span>
+                                    <a href="${sub.url}" target="_blank" style="color:#1a0dab; text-decoration:none; font-size:13px; font-weight:500;">
+                                        ${sub.title}
+                                    </a>
+                                </div>
+                            `;
+                        });
+                        subPagesHtml += '</div>';
+                    }
+
+                    // 2. 組合主網頁 + 子網頁
                     div.innerHTML = `
                         <div style="float:right; color:#999; font-size:12px;">#${index + 1}</div>
                         <a href="${item.url}" class="result-title" target="_blank">${item.title}</a>
@@ -167,7 +185,7 @@
                             <span style="color:#999; font-weight:normal;">(Google原排名: ${item.googleRank})</span>
                         </div>
                         <div class="snippet">${item.content ? item.content.substring(0, 120) + '...' : ''}</div>
-                    `;
+                        ${subPagesHtml} `;
                     resultsDiv.appendChild(div);
                 });
 
