@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>荒野亂鬥專屬搜尋引擎</title>
+    <title>荒野亂鬥搜尋引擎</title>
     <style>
         body { 
             font-family: "Microsoft JhengHei", Arial, sans-serif; 
@@ -97,7 +97,7 @@
 <body>
 
     <div class="search-box">
-        <h1 style="margin-top:0; color:#333;">Brawl Stars Search</h1>
+        <h1 style="margin-top:0; color:#333;">荒野搜 Brawl Stars Search</h1>
         <div class="input-group">
             <input type="text" id="query" placeholder="輸入關鍵字" onkeydown="if(event.key==='Enter') doSearch()">
             <button onclick="doSearch()">搜尋</button>
@@ -176,16 +176,22 @@
                     }
 
                     // 2. 組合主網頁 + 子網頁
+                    // 2. 組合主網頁 + 子網頁
                     div.innerHTML = `
                         <div style="float:right; color:#999; font-size:12px;">#${index + 1}</div>
                         <a href="${item.url}" class="result-title" target="_blank">${item.title}</a>
                         <div style="color:green; font-size:12px; margin-bottom:5px;">${item.url}</div>
+                        
                         <div class="score-line ${scoreColor}">
-                            自訂分數: ${item.topicScore.toFixed(1)} 
-                            <span style="color:#999; font-weight:normal;">(Google原排名: ${item.googleRank})</span>
+                            <span style="font-size:12px; color:#555; font-weight:normal;">
+                                ${item.scoreDetails || ''} = 
+                            </span>
+                            <span style="font-size:16px;">${item.topicScore.toFixed(1)}</span>
                         </div>
+
                         <div class="snippet">${item.content ? item.content.substring(0, 120) + '...' : ''}</div>
-                        ${subPagesHtml} `;
+                        ${subPagesHtml} 
+                    `;
                     resultsDiv.appendChild(div);
                 });
 
