@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>會員註冊</title>
+    <style>
+        /* 樣式同 Login */
+        body { 
+            font-family: "Microsoft JhengHei"; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            
+            /* --- 修改這裡：背景圖片設定 --- */
+            background-image: url('images.jpg'); /* 請確認檔名正確 */
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: no-repeat;
+            /* --------------------------- */
+        }
+        .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; width: 300px; }
+        input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        button { width: 100%; padding: 10px; background: #28a745; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #218838; }
+        .link { margin-top: 10px; display: block; color: #007bff; text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>註冊帳號</h2>
+        <input type="text" id="username" placeholder="設定名稱">
+        <input type="password" id="password" placeholder="設定密碼">
+        <button onclick="register()">註冊</button>
+        <a href="login.html" class="link">已有帳號？去登入</a>
+    </div>
+
+    <script>
+        function register() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            fetch(`/api/auth/register?username=${u}&password=${p}`, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success) {
+                        alert("註冊成功，請登入！");
+                        window.location.href = "login.html";
+                    } else {
+                        alert(data.message);
+                    }
+                });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>個人檔案</title>
+    <style>
+        body { 
+            font-family: "Microsoft JhengHei", Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background-image: url('images.jpg'); 
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: no-repeat;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center; 
+        }
+
+        .container-box {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+            backdrop-filter: blur(5px);
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 20px;
+        }
+
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 2px solid #eee; 
+            padding-bottom: 20px; 
+            margin-bottom: 20px;
+        }
+
+        h1 { margin: 0; color: #333; font-size: 24px; }
+
+        /* 按鈕樣式 */
+        .cute-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 14px;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+        }
+        .cute-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn-home { background-color: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; margin-right: 10px; }
+        .btn-home:hover { background-color: #2196f3; color: white; }
+
+        .btn-logout { background-color: #ff6b81; color: white; }
+        .btn-logout:hover { background-color: #ff4757; }
+
+        /* 搜尋框 */
+        .search-bar {
+            width: 100%;
+            padding: 15px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 12px;
+            outline: none;
+            box-sizing: border-box;
+            margin-bottom: 20px;
+            transition: 0.2s;
+        }
+        .search-bar:focus { border-color: #ffcc00; background-color: #fffdf5; }
+
+        /* 收藏列表項目 */
+        .fav-item { 
+            background: white;
+            border: 1px solid #eee; 
+            padding: 15px; 
+            margin-bottom: 10px; 
+            border-radius: 12px; 
+            transition: 0.2s;
+            display: flex; /* 使用 Flex 排版 */
+            justify-content: space-between; /* 左右分開 */
+            align-items: center;
+        }
+        .fav-item:hover { border-color: #ffcc00; transform: translateX(5px); }
+        
+        .fav-content { flex-grow: 1; overflow: hidden; } /* 文字區塊佔滿剩餘空間 */
+
+        .fav-title { 
+            font-weight: bold; font-size: 18px; color: #1a0dab; 
+            text-decoration: none; display: block;
+        }
+        .fav-title:hover { text-decoration: underline; }
+
+        .fav-url { color: #28a745; font-size: 12px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* [新增] 刪除按鈕樣式 */
+        .delete-btn {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 50%; /* 圓形 */
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            margin-left: 15px;
+            color: #666;
+            transition: 0.2s;
+        }
+        .delete-btn:hover {
+            background-color: #ffebee;
+            color: #d32f2f;
+            border-color: #ffcdd2;
+            transform: scale(1.1);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container-box">
+        
+        <div class="header">
+            <h1>👤 <span id="user-name">載入中...</span> 的檔案</h1>
+            <div>
+                <a href="index.html" class="cute-btn btn-home">🏠回首頁</a>
+                <button class="cute-btn btn-logout" onclick="logout()">登出</button>
+            </div>
+        </div>
+
+        <div style="position: relative;">
+            <input type="text" id="filterInput" class="search-bar" placeholder="🔍在收藏中搜尋..." onkeyup="filterFavorites()">
+        </div>
+
+        <h3 style="color:#555; border-left: 5px solid #ffcc00; padding-left: 10px;">❤️ 喜愛貼文清單</h3>
+        <div id="favorites-list">
+            <p style="color:#888; text-align:center;">正在讀取...</p>
+        </div>
+
+    </div>
+
+    <script>
+        let allFavorites = []; // 存原始資料
+
+        // 1. 載入資料
+        fetch('/api/auth/check')
+            .then(res => res.json())
+            .then(data => {
+                if(!data.isLoggedIn) {
+                    alert("請先登入");
+                    window.location.href = "login.html";
+                    return;
+                }
+                document.getElementById('user-name').innerText = data.username;
+                allFavorites = data.favorites || [];
+                renderFavorites(allFavorites);
+            })
+            .catch(err => console.error(err));
+
+        // 2. 渲染列表 (加入刪除按鈕)
+        function renderFavorites(list) {
+            const container = document.getElementById('favorites-list');
+            if(!list || list.length === 0) {
+                container.innerHTML = "<p style='text-align:center; color:#999; padding:20px;'>目前沒有收藏任何貼文 🍃</p>";
+                return;
+            }
+            let html = "";
+            list.forEach(item => {
+                html += `
+                    <div class="fav-item">
+                        <div class="fav-content">
+                            <a href="${item.url}" target="_blank" class="fav-title">${item.title}</a>
+                            <div class="fav-url">${item.url}</div>
+                        </div>
+                        <button class="delete-btn" title="移除收藏" onclick="removeFav('${encodeURIComponent(item.url)}')">
+                            🗑️
+                        </button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // 3. [新增] 移除單一收藏
+        function removeFav(urlEnc) {
+            if(!confirm("確定從收藏中移除嗎？")) return;
+
+            const url = decodeURIComponent(urlEnc);
+            const pageData = { url: url };
+
+            fetch('/api/auth/favorite/remove', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(pageData)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    // 更新本地陣列並重新渲染
+                    allFavorites = allFavorites.filter(item => item.url !== url);
+                    // 重新執行篩選邏輯 (保持目前的搜尋狀態)
+                    filterFavorites();
+                } else {
+                    alert(data.message);
+                }
+            });
+        }
+
+        // 4. 篩選
+        function filterFavorites() {
+            const keyword = document.getElementById('filterInput').value.toLowerCase();
+            const filtered = allFavorites.filter(item => {
+                return item.title.toLowerCase().includes(keyword);
+            });
+            renderFavorites(filtered);
+        }
+
+        // 5. 登出
+        function logout() {
+            if(confirm("確定要登出嗎？")) {
+                fetch('/api/auth/logout', { method: 'POST' })
+                    .then(() => window.location.href = "index.html");
+            }
+        }
+    </script>
+</body>
+</html>

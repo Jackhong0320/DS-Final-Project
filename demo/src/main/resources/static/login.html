@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>會員登入</title>
+    <style>
+        body { 
+            font-family: "Microsoft JhengHei"; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            
+            /* --- 修改這裡：背景圖片設定 --- */
+            background-image: url('images.jpg'); /* 請確認檔名正確 */
+            background-size: cover;
+            background-attachment: fixed;
+            background-position: center;
+            background-repeat: no-repeat;
+            /* --------------------------- */
+        }
+        .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; width: 300px; }
+        input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
+        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .link { margin-top: 10px; display: block; color: #007bff; text-decoration: none; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>登入帳號</h2>
+        <input type="text" id="username" placeholder="使用者名稱">
+        <input type="password" id="password" placeholder="密碼">
+        <button onclick="login()">登入</button>
+        <a href="register.html" class="link">還沒有帳號？去註冊</a>
+        <a href="index.html" class="link">回首頁</a>
+    </div>
+
+    <script>
+        function login() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            // 發送 Post 請求
+            fetch(`/api/auth/login?username=${u}&password=${p}`, { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    if(data.success) {
+                        alert("登入成功！");
+                        window.location.href = "index.html"; // 回首頁
+                    } else {
+                        alert(data.message);
+                    }
+                });
+        }
+    </script>
+</body>
+</html>

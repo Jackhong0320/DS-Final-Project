@@ -16,6 +16,50 @@
             background-repeat: no-repeat;
         }
 
+        /* --- 新增：右上角會員導覽列樣式 --- */
+        .top-nav { 
+            position: absolute; 
+            top: 20px; 
+            right: 20px; 
+            z-index: 1000;
+        }
+        .nav-btn { 
+            text-decoration: none; 
+            color: #333; 
+            font-weight: bold; 
+            background: rgba(255,255,255,0.9); 
+            padding: 10px 20px; 
+            border-radius: 30px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: 0.3s;
+        }
+        .nav-btn:hover {
+            background: #fff;
+            transform: scale(1.05);
+        }
+
+        /* --- 新增：搜尋結果愛心按鈕樣式 --- */
+        .fav-btn {
+            float: right;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 5px;
+            padding: 4px 10px;
+            font-size: 13px;
+            color: #555;
+            margin-left: 10px;
+            transition: 0.2s;
+        }
+        .fav-btn:hover { background-color: #f8f8f8; }
+        
+        /* 已加入收藏的狀態 */
+        .fav-btn.added {
+            background: #ff4757;
+            color: white;
+            border-color: #ff4757;
+        }
+
         .search-box { 
             background: rgba(255, 255, 255, 0.95);
             padding: 30px; 
@@ -24,6 +68,7 @@
             text-align: center; 
             margin-bottom: 20px;
             backdrop-filter: blur(5px);
+            margin-top: 40px; /* 為了避開右上角按鈕稍微往下移 */
         }
         
         .input-group { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px;}
@@ -96,6 +141,8 @@
 </head>
 <body>
 
+    <div class="top-nav" id="nav-container"></div>
+
     <div class="search-box">
         <h1 style="margin-top:0; color:#333;">荒野搜 Brawl Stars Search</h1>
         <div class="input-group">
@@ -119,6 +166,34 @@
     <div id="results-area"></div>
 
     <script>
+        // 全域變數：紀錄登入狀態與收藏列表
+        let isLoggedIn = false;
+        let myFavoritesUrlSet = new Set(); 
+
+        // 頁面載入時檢查登入狀態
+        window.onload = function() {
+            checkLoginStatus();
+        }
+
+        function checkLoginStatus() {
+            fetch('/api/auth/check')
+                .then(res => res.json())
+                .then(data => {
+                    const nav = document.getElementById('nav-container');
+                    isLoggedIn = data.isLoggedIn;
+
+                    if (isLoggedIn) {
+                        if(data.favorites) {
+                            data.favorites.forEach(fav => myFavoritesUrlSet.add(fav.url));
+                        }
+                        nav.innerHTML = `<a href="profile.html" class="nav-btn">👤 ${data.username} 的檔案</a>`;
+                    } else {
+                        nav.innerHTML = `<a href="login.html" class="nav-btn">🔑 登入 / 註冊</a>`;
+                    }
+                })
+                .catch(err => console.error("Session check failed", err));
+        }
+
         async function doSearch(keyword) {
             const input = document.getElementById('query');
             const queryText = keyword || input.value; 
@@ -142,7 +217,6 @@
                 if (data.ai_summary) {
                     const aiBox = document.getElementById('ai-box');
                     const aiContent = document.getElementById('ai-content');
-                    
                     aiBox.style.display = 'block';
                     aiContent.innerHTML = data.ai_summary;
                 }
@@ -158,7 +232,18 @@
                     div.className = 'result-item';
                     const scoreColor = item.topicScore > 15 ? 'high-score' : 'low-score';
                     
-                    // 1. 生成子網頁的 HTML
+                    // --- 愛心按鈕邏輯 (只有登入才顯示) ---
+                    let favBtnHtml = '';
+                    if (isLoggedIn) {
+                        const isAdded = myFavoritesUrlSet.has(item.url);
+                        // 根據狀態決定按鈕文字與樣式
+                        const btnText = isAdded ? '❤️ 已收藏' : '🤍 加入喜愛';
+                        const btnClass = isAdded ? 'fav-btn added' : 'fav-btn';
+                        
+                        favBtnHtml = `<button class="${btnClass}" onclick="toggleFav(this, '${encodeURIComponent(item.url)}', '${encodeURIComponent(item.title)}')">${btnText}</button>`;
+                    }
+
+                    // 生成子網頁的 HTML
                     let subPagesHtml = '';
                     if (item.subPages && item.subPages.length > 0) {
                         subPagesHtml += '<div class="sub-pages-container" style="margin-top:10px; padding-left:20px; border-left: 2px solid #eee;">';
@@ -175,10 +260,9 @@
                         subPagesHtml += '</div>';
                     }
 
-                    // 2. 組合主網頁 + 子網頁
-                    // 2. 組合主網頁 + 子網頁
                     div.innerHTML = `
-                        <div style="float:right; color:#999; font-size:12px;">#${index + 1}</div>
+                        ${favBtnHtml}
+                        <div style="float:right; color:#999; font-size:12px; margin-right:10px;">#${index + 1}</div>
                         <a href="${item.url}" class="result-title" target="_blank">${item.title}</a>
                         <div style="color:green; font-size:12px; margin-bottom:5px;">${item.url}</div>
                         
@@ -213,6 +297,52 @@
             } catch(e) {
                 console.error(e);
                 document.getElementById('loading').innerText = '錯誤';
+            }
+        }
+
+        // --- [修改] 支援加入/移除的切換功能 ---
+        function toggleFav(btn, urlEnc, titleEnc) {
+            const url = decodeURIComponent(urlEnc);
+            const title = decodeURIComponent(titleEnc);
+            const pageData = { url: url, title: title };
+
+            // 判斷目前狀態：如果有 'added' class，代表要移除
+            if (btn.classList.contains('added')) {
+                // 執行移除
+                fetch('/api/auth/favorite/remove', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pageData)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        // 移除成功：變回白色愛心
+                        btn.classList.remove('added');
+                        btn.innerText = '🤍 加入喜愛';
+                        myFavoritesUrlSet.delete(url); // 從本地暫存移除
+                    } else {
+                        alert(data.message);
+                    }
+                });
+            } else {
+                // 執行加入
+                fetch('/api/auth/favorite/add', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pageData)
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        // 加入成功：變成紅色愛心
+                        btn.classList.add('added');
+                        btn.innerText = '❤️ 已收藏';
+                        myFavoritesUrlSet.add(url); // 加入本地暫存
+                    } else {
+                        alert(data.message);
+                    }
+                });
             }
         }
     </script>
