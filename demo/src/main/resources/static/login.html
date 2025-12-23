@@ -11,13 +11,11 @@
             align-items: center; 
             height: 100vh; 
             
-            /* --- 修改這裡：背景圖片設定 --- */
-            background-image: url('images.jpg'); /* 請確認檔名正確 */
+            background-image: url('images.jpg');
             background-size: cover;
             background-attachment: fixed;
             background-position: center;
             background-repeat: no-repeat;
-            /* --------------------------- */
         }
         .card { background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); text-align: center; width: 300px; }
         input { width: 90%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; }
@@ -40,13 +38,13 @@
         function login() {
             const u = document.getElementById('username').value;
             const p = document.getElementById('password').value;
-            // 發送 Post 請求
+            // 發送Post請求
             fetch(`/api/auth/login?username=${u}&password=${p}`, { method: 'POST' })
                 .then(res => res.json())
                 .then(data => {
                     if(data.success) {
                         alert("登入成功！");
-                        window.location.href = "index.html"; // 回首頁
+                        window.location.href = "index.html";
                     } else {
                         alert(data.message);
                     }

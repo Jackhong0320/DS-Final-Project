@@ -12,13 +12,12 @@ import dsfinal.demo.model.WebPage;
 @Service
 public class AiSummaryService {
 
-    // 支援多國語言的遊戲名稱 (用來給保底分)
     private final String[] GAME_NAMES = {
         "brawl", "荒野", "ブロスタ", "브롤", "бравл", "براول"
     };
 
     public String generateSummary(String query, List<WebPage> topPages) {
-        // 取前 3 篇，避免雜訊太多
+        // 取前3篇
         List<WebPage> references = topPages.size() > 3 ? topPages.subList(0, 3) : topPages;
         
         boolean isChinese = isChinese(query);
@@ -32,7 +31,7 @@ public class AiSummaryService {
         String noResult = isChinese ? "資訊量不足，無法生成摘要。" : "Not enough information to generate a summary.";
         String sourceTitle = isChinese ? "📚 資料來源：" : "📚 Sources:";
 
-        // AI 標題
+        // AI標題
         sb.append("<div style='margin-bottom:10px;'>")
           .append("<span style='font-weight:bold; color:#1a73e8; font-size:16px;'>").append(title).append("</span>")
           .append("<span style='color:#666; font-size:14px; margin-left:10px;'>").append(query).append("</span>")
@@ -53,7 +52,7 @@ public class AiSummaryService {
             sb.append("</p>");
         }
 
-        // 引用來源區
+        // 引用來源
         sb.append("<div style='margin-top:15px; font-size:12px; color:#666; border-top:1px solid #eee; padding-top:10px;'>");
         sb.append("<strong>").append(sourceTitle).append("</strong><br>");
         for (int i = 0; i < references.size(); i++) {
@@ -75,8 +74,6 @@ public class AiSummaryService {
 
             // 移除特殊字元
             String dirtyContent = page.content.replaceAll("[\\uE000-\\uF8FF]", ""); 
-            
-            // 斷句邏輯：加入英文句點 (.)
             String[] sentences = dirtyContent.split("[。！？\\n\\r?!.]");
 
             for (String s : sentences) {
@@ -84,7 +81,7 @@ public class AiSummaryService {
                 
                 // 長度限制
                 int minLen = isChinese ? 10 : 15;  
-                int maxLen = 200; // 稍微放寬上限
+                int maxLen = 200;
                 
                 if (cleanS.length() < minLen || cleanS.length() > maxLen) continue; 
                 if (seenSentences.contains(cleanS)) continue; 
@@ -102,10 +99,10 @@ public class AiSummaryService {
         scoredSentences.sort((s1, s2) -> Integer.compare(s2.score, s1.score));
 
         List<String> result = new ArrayList<>();
-        // 取前 3 句
+        // 取前3句
         for (int i = 0; i < Math.min(3, scoredSentences.size()); i++) {
             String text = scoredSentences.get(i).text;
-            // 補上標點
+            // 補標點
             if(!text.matches(".*[。！？?!.]$")) {
                 text += (isChinese ? "。" : ". ");
             }
@@ -119,27 +116,25 @@ public class AiSummaryService {
         String lowerS = sentence.toLowerCase();
         String lowerQ = query.toLowerCase();
 
-        // 黑名單
         if (lowerS.contains("cookies") || lowerS.contains("login") || lowerS.contains("rights reserved") || lowerS.contains("登入")) return -999;
 
-        // [修正 2] 關鍵字拆解比對
         String[] keywords = lowerQ.split("\\s+");
         int matchCount = 0;
         
         for (String kw : keywords) {
             if (kw.length() < 1) continue;
             if (lowerS.contains(kw)) {
-                score += 30; // 每命中一個詞加分
+                score += 30;
                 matchCount++;
             }
         }
 
-        // 如果全部關鍵字都命中，給予額外加分 (代表這句話很精準)
+        // 如果全部關鍵字都命中，給予額外加分
         if (matchCount == keywords.length && keywords.length > 0) {
             score += 40;
         }
 
-        // 保底分
+        // 保底
         for (String gameName : GAME_NAMES) {
             if (lowerS.contains(gameName)) {
                 score += 10;

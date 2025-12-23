@@ -42,7 +42,6 @@
 
         h1 { margin: 0; color: #333; font-size: 24px; }
 
-        /* 按鈕樣式 */
         .cute-btn {
             display: inline-block;
             padding: 10px 20px;
@@ -66,7 +65,6 @@
         .btn-logout { background-color: #ff6b81; color: white; }
         .btn-logout:hover { background-color: #ff4757; }
 
-        /* 搜尋框 */
         .search-bar {
             width: 100%;
             padding: 15px;
@@ -80,7 +78,6 @@
         }
         .search-bar:focus { border-color: #ffcc00; background-color: #fffdf5; }
 
-        /* 收藏列表項目 */
         .fav-item { 
             background: white;
             border: 1px solid #eee; 
@@ -88,13 +85,13 @@
             margin-bottom: 10px; 
             border-radius: 12px; 
             transition: 0.2s;
-            display: flex; /* 使用 Flex 排版 */
-            justify-content: space-between; /* 左右分開 */
+            display: flex;
+            justify-content: space-between;
             align-items: center;
         }
         .fav-item:hover { border-color: #ffcc00; transform: translateX(5px); }
         
-        .fav-content { flex-grow: 1; overflow: hidden; } /* 文字區塊佔滿剩餘空間 */
+        .fav-content { flex-grow: 1; overflow: hidden; }
 
         .fav-title { 
             font-weight: bold; font-size: 18px; color: #1a0dab; 
@@ -104,11 +101,10 @@
 
         .fav-url { color: #28a745; font-size: 12px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        /* [新增] 刪除按鈕樣式 */
         .delete-btn {
             background-color: #f8f9fa;
             border: 1px solid #ddd;
-            border-radius: 50%; /* 圓形 */
+            border-radius: 50%;
             width: 36px;
             height: 36px;
             display: flex;
@@ -152,9 +148,9 @@
     </div>
 
     <script>
-        let allFavorites = []; // 存原始資料
+        let allFavorites = [];
 
-        // 1. 載入資料
+        // 載入資料
         fetch('/api/auth/check')
             .then(res => res.json())
             .then(data => {
@@ -169,7 +165,7 @@
             })
             .catch(err => console.error(err));
 
-        // 2. 渲染列表 (加入刪除按鈕)
+        // 渲染列表 (加入刪除按鈕)
         function renderFavorites(list) {
             const container = document.getElementById('favorites-list');
             if(!list || list.length === 0) {
@@ -193,7 +189,7 @@
             container.innerHTML = html;
         }
 
-        // 3. [新增] 移除單一收藏
+        // 移除收藏
         function removeFav(urlEnc) {
             if(!confirm("確定從收藏中移除嗎？")) return;
 
@@ -208,9 +204,7 @@
             .then(res => res.json())
             .then(data => {
                 if(data.success) {
-                    // 更新本地陣列並重新渲染
                     allFavorites = allFavorites.filter(item => item.url !== url);
-                    // 重新執行篩選邏輯 (保持目前的搜尋狀態)
                     filterFavorites();
                 } else {
                     alert(data.message);
@@ -218,7 +212,7 @@
             });
         }
 
-        // 4. 篩選
+        // 篩選
         function filterFavorites() {
             const keyword = document.getElementById('filterInput').value.toLowerCase();
             const filtered = allFavorites.filter(item => {
@@ -227,7 +221,7 @@
             renderFavorites(filtered);
         }
 
-        // 5. 登出
+        // 登出
         function logout() {
             if(confirm("確定要登出嗎？")) {
                 fetch('/api/auth/logout', { method: 'POST' })

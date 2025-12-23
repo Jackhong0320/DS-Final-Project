@@ -8,7 +8,6 @@ public class User {
     private String password;
     private List<WebPage> favorites;
 
-    // [新增] 必須要有這個無參數建構子，JSON 讀取時才不會報錯
     public User() {
         this.favorites = new ArrayList<>();
     }
@@ -30,7 +29,6 @@ public class User {
     
     public void addFavorite(WebPage page) {
         if (favorites == null) favorites = new ArrayList<>();
-        // 避免重複
         boolean exists = favorites.stream().anyMatch(f -> f.url.equals(page.url));
         if (!exists) {
             favorites.add(page);

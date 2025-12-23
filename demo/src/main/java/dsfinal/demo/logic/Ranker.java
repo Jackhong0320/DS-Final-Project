@@ -25,7 +25,7 @@ import dsfinal.demo.model.WebPage;
 public class Ranker {
     
     private final String[] THEME_KEYWORDS = {
-        "荒野亂鬥", "Brawl Stars", "brawl star", "brawl",
+        "荒野亂鬥", "Brawl Stars", "brawl star", "brawl", "Supercell",
         "ブロスタ", "브롤스타즈", "브롤", "براول ستارز"
     };
 
@@ -41,21 +41,18 @@ public class Ranker {
         if (page.content == null) page.content = ""; 
         
         double score = 0.0;
-        StringBuilder sb = new StringBuilder();
 
         String fullText = (page.title + " " + page.content).toLowerCase();
         String query = userQuery.toLowerCase();
         String url = page.url.toLowerCase();
         
-        // 轉小寫的標題，方便比對
         String titleLower = page.title.toLowerCase();
 
-        // 1. 主題檢查 (修改為：標題+內文雙重檢查)
+        // 1. 主題檢查
         boolean isThemeRelated = false;
         boolean themeInTitle = false;
         boolean themeInContent = false;
         
-        // 檢查標題
         for (String themeWord : THEME_KEYWORDS) {
             if (titleLower.contains(themeWord.toLowerCase())) {
                 themeInTitle = true;
@@ -63,8 +60,6 @@ public class Ranker {
             }
         }
         
-        // 檢查內文 (這裡我們檢查 fullText，因為 fullText 包含 title + content，若 title 沒中但 fullText 中，代表 content 中)
-        // 為了精確區分，我們可以只檢查 content，但為了保險起見，我們沿用 fullText 邏輯
         for (String themeWord : THEME_KEYWORDS) {
             if (fullText.contains(themeWord.toLowerCase())) {
                 themeInContent = true;
@@ -73,28 +68,20 @@ public class Ranker {
         }
 
         if (themeInTitle && themeInContent) {
-            // 情況 A: 標題和內文都有 -> 最佳 -> +60
-            score += 60.0;
-            sb.append("[主題(標題+內文):60] ");
+            score += 60.0; // 標題和內文都有
             isThemeRelated = true;
         } else if (themeInTitle) {
-            // 情況 B: 只有標題有 (內文可能抓取失敗或太短) -> 次佳 -> +40
-            score += 40.0;
-            sb.append("[主題(僅標題):40] ");
+            score += 40.0; // 只有標題有
             isThemeRelated = true;
         } else if (themeInContent) {
-            // 情況 C: 只有內文有 (標題沒提) -> 配角 -> +10
-            score += 10.0;
-            sb.append("[主題(僅內文):10] ");
+            score += 10.0; // 只有內文有
             isThemeRelated = true;
         } else {
-            // 情況 D: 都沒有 -> 無關 -> -50
-            score -= 50.0;
-            sb.append("[非主題:-50] ");
+            score -= 50.0; // 都沒有
             isThemeRelated = false;
         }
 
-        // 2. 關鍵字命中計算
+        // 關鍵字命中計算
         String[] keywords = query.split("\\s+");
         double keywordScore = 0;
         
@@ -123,11 +110,9 @@ public class Ranker {
             }
             
             score += keywordScore;
-            if(keywordScore > 0) sb.append("+ [關鍵字:" + (int)keywordScore + "] ");
-            else sb.append("- [關鍵字缺失] ");
         }
 
-        // 3. 權威網站加分
+        // 權威網站加分
         boolean isAuthority = false;
         for (String domain : AUTHORITY_DOMAINS) {
             if (url.contains(domain)) {
@@ -135,23 +120,21 @@ public class Ranker {
                 break;
             }
         }
-        // 只有當 (是權威站) AND (符合主題) AND (關鍵字分數 > 0) 時才加分
+        
         if (isAuthority && isThemeRelated && keywordScore > 0) {
             score += 15.0;
-            sb.append("+ [權威:15] ");
         }
 
-        // 4. 子網頁挖掘與評分
+        // 子網頁挖掘與評分
         if (doc != null) {
             double subPagesBonus = processSubPages(page, doc, query);
             double actualBonus = subPagesBonus * 0.2;
             if (actualBonus > 0) {
                 score += actualBonus;
-                sb.append("+ [子網頁:" + String.format("%.1f", actualBonus) + "]");
             }
         }
 
-        page.scoreDetails = sb.toString();
+        page.scoreDetails = String.format("%.1f", score);
         page.topicScore = score;
         return score;
     }

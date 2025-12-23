@@ -19,6 +19,7 @@ import dsfinal.demo.model.WebPage;
 @Service
 public class GoogleSearchService {
 
+    // 額度不夠可自行修改API Key 和 Search Engine ID
     private final String GOOGLE_API_KEY = "AIzaSyDe9f1O6NEdXEcY-dwC88ECOpFhHU0D1So"; 
     private final String SEARCH_ENGINE_ID = "b25a4f1b2c45547ca"; 
     
@@ -79,8 +80,15 @@ public class GoogleSearchService {
                 Document doc = null; 
 
                 try {
-                    doc = Jsoup.connect(link).userAgent("Mozilla/5.0").timeout(2000).get();
-                    page.setContent(doc.body().text());
+                    // 嘗試爬取網頁內容
+                    doc = Jsoup.connect(link)
+                           .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36") // 偽裝成更像真實的瀏覽器
+                           .timeout(3000)
+                           .get();
+                    
+                    String crawledText = doc.body().text();
+                    page.setContent(crawledText + " " + snippet);
+
                 } catch (Exception e) {
                     page.setContent(snippet);
                 }
@@ -98,7 +106,7 @@ public class GoogleSearchService {
         return pages;
     }
 
-    // --- 語言偵測工具區 ---
+    // 語言偵測
     private boolean containsChinese(String s) {
         for (char c : s.toCharArray()) if (UnicodeBlock.of(c) == UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS) return true;
         return false;

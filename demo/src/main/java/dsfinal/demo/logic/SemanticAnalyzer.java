@@ -10,7 +10,7 @@ import java.util.Set;
 import dsfinal.demo.model.WebPage;
 
 /**
- * SemanticAnalyzer (萬國語言 + 錯字容錯版)
+ * SemanticAnalyzer
  */
 public class SemanticAnalyzer {
 
@@ -34,7 +34,7 @@ public class SemanticAnalyzer {
             String rawTitle = page.title;
             if (rawTitle == null) continue;
 
-            // 步驟 1: 清洗
+            // 清洗
             
             String cleanTitle = rawTitle.replaceAll("(?i)(\\s*[-|–:_]\\s*).*$", "")
                                    .replaceAll("【.*?】", " ")
@@ -48,7 +48,7 @@ public class SemanticAnalyzer {
             cleanTitle = cleanTitle.trim().replaceAll("\\s+", " ");
             String lowerTitle = cleanTitle.toLowerCase();
 
-            // 步驟 2: 挖掘邏輯
+            // 挖掘邏輯
             
             if (hasSpace) {
                 // 空格查詢策略
@@ -57,19 +57,19 @@ public class SemanticAnalyzer {
                 // 無空格查詢策略 (包含錯字處理)
                 int idx = lowerTitle.indexOf(lowerQuery);
                 
-                // 如果精確比對找不到，嘗試「模糊比對」解決錯字問題
+                // 如果精確比對找不到，嘗試「模糊比對」
                 if (idx == -1) {
                     idx = findFuzzyMatchIndex(lowerTitle, lowerQuery);
                 }
 
                 while (idx != -1) {
-                    // 從找到的位置(可能是錯字的位置)往後抓
+                    // 從找到的位置往後抓
                     String suffix = cleanTitle.substring(idx + userQuery.length());
                     suffix = trimLeadingStopWords(suffix);
                     if (!suffix.isEmpty()) {
                         extractCandidates(suffix, candidateFreq);
                     }
-                    // 繼續找下一個 (精確比對才有辦法簡單繼續找，模糊比對找一次就好)
+                    // 繼續找下一個
                     if (lowerTitle.indexOf(lowerQuery, idx + 1) != -1) {
                         idx = lowerTitle.indexOf(lowerQuery, idx + 1);
                     } else {
@@ -79,7 +79,7 @@ public class SemanticAnalyzer {
             }
         }
 
-        // 步驟 3: 排序與輸出
+        // 排序與輸出
         List<String> suggestions = new java.util.ArrayList<>();
         Set<Character> usedChars = new HashSet<>();
         
@@ -92,10 +92,10 @@ public class SemanticAnalyzer {
             .map(Map.Entry::getKey)
             .filter(s -> isValidCandidate(s, lowerQuery))
             .forEach(candidate -> {
-                if (suggestions.size() >= 5) return;
+                if (suggestions.size() >= 10) return;
                 if (containsUsedChars(candidate, usedChars)) return;
                 
-                // 如果使用者打錯字，我們建議時還是用他原本打的字 + 建議詞
+                // 如果使用者打錯字，建議時還是用原本打的字 + 建議詞
                 String suggestion = hasSpace ? firstWord + " " + candidate : userQuery + " " + candidate;
                 suggestions.add(suggestion);
                 
@@ -108,19 +108,18 @@ public class SemanticAnalyzer {
     }
     
     /**
-     * 模糊比對：在標題中尋找與 Query 最像的片段
-     * 解決 "荒也亂鬥" (錯字) 找不到 "荒野亂鬥" (正確標題) 的問題
+     * 模糊比對：在標題中尋找與 Query 最像的片段，允許一定比例的錯字
      */
     private int findFuzzyMatchIndex(String title, String query) {
         if (title.length() < query.length()) return -1;
         if (query.length() < 2) return -1; // 太短不模糊比對
 
         int bestIdx = -1;
-        // 容錯率設定：允許 25% 的錯誤
+        // 允許 25% 的錯誤
         int maxErrors = Math.max(1, query.length() / 4); 
         int minDiff = Integer.MAX_VALUE;
 
-        // 滑動視窗 (Sliding Window) 掃描整串標題
+        // 滑動視窗掃描整串標題
         for (int i = 0; i <= title.length() - query.length(); i++) {
             String sub = title.substring(i, i + query.length());
             int diff = 0;
@@ -139,7 +138,6 @@ public class SemanticAnalyzer {
             }
         }
         
-        // 如果完全沒找到像的，minDiff 會很大
         if (minDiff > maxErrors) return -1;
         
         return bestIdx;
@@ -176,7 +174,7 @@ public class SemanticAnalyzer {
                     }
                 }
             }
-            // 模糊比對後只取第一個最像的就好，避免複雜迴圈
+            // 模糊比對後只取第一個最像的
             break;
         }
     }

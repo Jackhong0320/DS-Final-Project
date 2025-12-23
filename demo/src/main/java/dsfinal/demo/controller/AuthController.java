@@ -20,20 +20,19 @@ import jakarta.servlet.http.HttpSession;
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    // 使用 ConcurrentHashMap 確保多執行緒安全
     private Map<String, User> userDb = new ConcurrentHashMap<>();
     
     // 設定存檔的檔名
     private final String DATA_FILE = "users_data.json";
     private final ObjectMapper mapper = new ObjectMapper();
 
-    // [核心] 程式啟動時，自動執行此方法載入資料
+    // 程式啟動時，自動執行此方法載入資料
     @PostConstruct
     public void init() {
         loadData();
     }
 
-    // 1. 註冊
+    // 註冊
     @PostMapping("/register")
     public Map<String, Object> register(@RequestParam String username, @RequestParam String password) {
         Map<String, Object> response = new HashMap<>();
@@ -42,14 +41,14 @@ public class AuthController {
             response.put("message", "帳號已存在");
         } else {
             userDb.put(username, new User(username, password));
-            saveData(); // [存檔]
+            saveData();
             response.put("success", true);
             response.put("message", "註冊成功，請登入");
         }
         return response;
     }
 
-    // 2. 登入
+    // 登入
     @PostMapping("/login")
     public Map<String, Object> login(@RequestParam String username, @RequestParam String password, HttpSession session) {
         Map<String, Object> response = new HashMap<>();
@@ -66,7 +65,7 @@ public class AuthController {
         return response;
     }
 
-    // 3. 登出
+    // 登出
     @PostMapping("/logout")
     public Map<String, Object> logout(HttpSession session) {
         session.invalidate(); 
@@ -75,14 +74,14 @@ public class AuthController {
         return response;
     }
 
-    // 4. 檢查狀態
+    // 檢查狀態
     @GetMapping("/check")
     public Map<String, Object> checkSession(HttpSession session) {
         Map<String, Object> response = new HashMap<>();
         User sessionUser = (User) session.getAttribute("currentUser");
         
         if (sessionUser != null) {
-            // 從記憶體 DB 拿最新的資料 (避免 Session 裡的資料是舊的)
+            // 從記憶體DB拿最新的資料
             User latestUser = userDb.get(sessionUser.getUsername());
             if (latestUser != null) {
                 response.put("isLoggedIn", true);
@@ -97,7 +96,7 @@ public class AuthController {
         return response;
     }
 
-    // 5. 加入最愛
+    // 加入最愛
     @PostMapping("/favorite/add")
     public Map<String, Object> addFavorite(@RequestBody WebPage page, HttpSession session) {
         Map<String, Object> response = new HashMap<>();
@@ -108,9 +107,8 @@ public class AuthController {
             User dbUser = userDb.get(sessionUser.getUsername());
             if (dbUser != null) {
                 dbUser.addFavorite(page);
-                saveData(); // [存檔]
+                saveData();
                 
-                // 同步更新 Session 裡的資料，以免下次 check 拿到舊的
                 session.setAttribute("currentUser", dbUser);
                 response.put("success", true);
             }
@@ -121,7 +119,7 @@ public class AuthController {
         return response;
     }
 
-    // 6. [新增] 移除最愛
+    // 移除最愛
     @PostMapping("/favorite/remove")
     public Map<String, Object> removeFavorite(@RequestBody WebPage page, HttpSession session) {
         Map<String, Object> response = new HashMap<>();
@@ -131,10 +129,9 @@ public class AuthController {
             // 更新 DB 中的使用者資料
             User dbUser = userDb.get(sessionUser.getUsername());
             if (dbUser != null) {
-                dbUser.removeFavorite(page.url); // 使用 User.java 裡原本就有的 remove 方法
-                saveData(); // 存檔
+                dbUser.removeFavorite(page.url); // 使用User.java原本就有的 remove 方法
+                saveData();
                 
-                // 同步更新 Session
                 session.setAttribute("currentUser", dbUser);
                 response.put("success", true);
             }
@@ -145,9 +142,8 @@ public class AuthController {
         return response;
     }
 
-    // --- 檔案存取 Helper Methods ---
 
-    // 將記憶體資料寫入 JSON 檔案
+    // 將記憶體資料寫入JSON檔案
     private void saveData() {
         try {
             mapper.writeValue(new File(DATA_FILE), userDb);
@@ -158,12 +154,11 @@ public class AuthController {
         }
     }
 
-    // 從 JSON 檔案讀取資料到記憶體
+    // 從JSON檔案讀取資料到記憶體
     private void loadData() {
         File file = new File(DATA_FILE);
         if (file.exists()) {
             try {
-                // TypeReference 用來告訴 Jackson 我們要讀的是 Map<String, User> 這種複雜型態
                 userDb = mapper.readValue(file, new TypeReference<Map<String, User>>(){});
                 System.out.println(">>> 成功載入使用者資料，共 " + userDb.size() + " 筆");
             } catch (IOException e) {
